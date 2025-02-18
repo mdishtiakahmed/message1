@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Direct P2P Video & Chat</title>
+  <title>লাইভ ভিডিও & চ্যাট</title>
   <!-- PeerJS লাইব্রেরি -->
   <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 0; padding: 0;
       background: #f7f7f7;
+      margin: 0;
+      padding: 20px;
     }
     .container {
-      max-width: 800px;
+      max-width: 900px;
       margin: auto;
-      padding: 20px;
     }
     .section {
       background: #fff;
@@ -41,26 +41,56 @@
     button:hover {
       background: #0056b3;
     }
+    /* চ্যাট উইন্ডোর স্টাইল */
     #chatMessages {
-      height: 200px;
+      height: 250px;
       overflow-y: auto;
       background: #fafafa;
       border: 1px solid #ccc;
       padding: 10px;
     }
-    video {
-      width: 100%;
-      max-width: 380px;
-      border: 1px solid #ccc;
-      border-radius: 3px;
-      margin: 5px;
+    .message {
+      margin: 5px 0;
+      padding: 8px 12px;
+      border-radius: 15px;
+      max-width: 70%;
+      word-wrap: break-word;
     }
-    @media (min-width: 600px) {
-      .video-container {
-        display: flex;
-        justify-content: space-around;
+    .message.self {
+      background-color: #dcf8c6;
+      margin-left: auto;
+      text-align: right;
+    }
+    .message.peer {
+      background-color: #f1f0f0;
+      margin-right: auto;
+      text-align: left;
+    }
+    /* ভিডিও কলের স্টাইল */
+    .video-container {
+      position: relative;
+      background: #000;
+    }
+    #remoteVideo {
+      width: 100%;
+      height: auto;
+      background: #000;
+    }
+    #localVideo {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      width: 150px;
+      height: auto;
+      border: 2px solid #fff;
+      border-radius: 5px;
+      /* Mirror local video */
+      transform: scaleX(-1);
+    }
+    @media (max-width: 600px) {
+      #localVideo {
+        width: 100px;
       }
-      video { width: 45%; }
     }
   </style>
 </head>
@@ -71,8 +101,8 @@
       <h2>লগইন</h2>
       <label for="accountSelect">একাউন্ট নির্বাচন করুন:</label>
       <select id="accountSelect">
-        <option value="account1">একাউন্ট ১</option>
-        <option value="account2">একাউন্ট ২</option>
+        <option value="account1">Account 1</option>
+        <option value="account2">Account 2</option>
       </select>
       <label for="passwordInput">পাসওয়ার্ড:</label>
       <input type="password" id="passwordInput" placeholder="পাসওয়ার্ড দিন">
@@ -81,7 +111,10 @@
     
     <!-- চ্যাট সেকশন -->
     <div id="chatSection" class="section" style="display:none;">
-      <h2>চ্যাট</h2>
+      <h2>লাইভ চ্যাট</h2>
+      <label for="usernameInput">আপনার নাম:</label>
+      <input type="text" id="usernameInput" placeholder="আপনার নাম লিখুন" value="">
+      <button id="updateUsername">নাম আপডেট করুন</button>
       <div id="chatMessages"></div>
       <input type="text" id="chatInput" placeholder="মেসেজ লিখুন...">
       <button id="sendChat">পাঠান</button>
@@ -89,10 +122,10 @@
     
     <!-- ভিডিও সেকশন -->
     <div id="videoSection" class="section" style="display:none;">
-      <h2>ভিডিও চ্যাট</h2>
+      <h2>ভিডিও কল</h2>
       <div class="video-container">
-        <video id="localVideo" autoplay muted></video>
         <video id="remoteVideo" autoplay></video>
+        <video id="localVideo" autoplay muted></video>
       </div>
       <button id="startVideo">ভিডিও শুরু করুন</button>
       <button id="stopVideo">ভিডিও বন্ধ করুন</button>
@@ -100,39 +133,48 @@
   </div>
   
   <script>
-    // --- গ্লোবাল ভেরিয়েবল ---
+    // ------------------ Global Variables ------------------
     let userRole;       // "account1" অথবা "account2"
+    let username;       // ব্যবহারকারীর নাম
     let peer;
     let dataConn;
     let localStream;
     let currentCall;
     
-    // DOM সিলেক্টর
+    // DOM Elements
     const loginSection = document.getElementById('loginSection');
     const chatSection  = document.getElementById('chatSection');
     const videoSection = document.getElementById('videoSection');
-    const loginButton  = document.getElementById('loginButton');
-    const passwordInput= document.getElementById('passwordInput');
-    const accountSelect= document.getElementById('accountSelect');
+    
+    const loginButton   = document.getElementById('loginButton');
+    const passwordInput = document.getElementById('passwordInput');
+    const accountSelect = document.getElementById('accountSelect');
+    
+    const usernameInput     = document.getElementById('usernameInput');
+    const updateUsernameBtn = document.getElementById('updateUsername');
     
     const chatMessagesDiv = document.getElementById('chatMessages');
-    const chatInput    = document.getElementById('chatInput');
-    const sendChatButton = document.getElementById('sendChat');
+    const chatInput       = document.getElementById('chatInput');
+    const sendChatButton  = document.getElementById('sendChat');
     
-    const localVideo   = document.getElementById('localVideo');
-    const remoteVideo  = document.getElementById('remoteVideo');
+    const localVideo  = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
     const startVideoButton = document.getElementById('startVideo');
     const stopVideoButton  = document.getElementById('stopVideo');
     
-    // --- লগইন ফাংশনালিটি ---
+    // ------------------ Login Functionality ------------------
     loginButton.addEventListener('click', function(){
       const pwd = passwordInput.value.trim();
       if(pwd !== 'robintanu'){
         alert("ভুল পাসওয়ার্ড!");
         return;
       }
-      // পাসওয়ার্ড যাচাই হলে, লগইন সেকশন লুকিয়ে চ্যাট ও ভিডিও সেকশন দেখানো হবে
+      // লগইন সফল হলে
       userRole = accountSelect.value; // "account1" অথবা "account2"
+      // ডিফল্ট ইউজারনেম হিসেবে account নাম সেট করা
+      username = userRole;
+      usernameInput.value = username;
+      
       loginSection.style.display = 'none';
       chatSection.style.display  = 'block';
       videoSection.style.display = 'block';
@@ -144,19 +186,18 @@
         console.log("Peer ID:", id);
         // account1 থেকে account2-তে ডাটা কানেকশন ও ভিডিও কল শুরু হবে
         if(userRole === 'account1'){
-          // Data channel শুরু
           dataConn = peer.connect("account2");
           setupDataConnection(dataConn);
         }
       });
       
-      // account2-তে ইনকামিং ডাটা কানেকশন গ্রহণ করা হবে
+      // account2-তে ইনকামিং ডাটা কানেকশন গ্রহণ
       peer.on('connection', function(conn){
         dataConn = conn;
         setupDataConnection(conn);
       });
       
-      // ভিডিও কল সংক্রান্ত ইভেন্ট – account2-তে ইনকামিং কল answer করা হবে
+      // ভিডিও কল – account2-তে ইনকামিং কল answer করা হবে
       peer.on('call', function(call){
         if(localStream) {
           call.answer(localStream);
@@ -178,43 +219,75 @@
       });
     });
     
-    // --- Data Connection (চ্যাট) সেটআপ ---
+    // ------------------ Update Username ------------------
+    updateUsernameBtn.addEventListener('click', function(){
+      const newName = usernameInput.value.trim();
+      if(newName !== ""){
+        username = newName;
+        alert("নাম আপডেট হয়েছে: " + username);
+      }
+    });
+    
+    // ------------------ Data Connection (Live Chat) Setup ------------------
     function setupDataConnection(conn) {
       conn.on('open', function(){
         console.log("Data connection open");
-        appendChatMessage("System", "আপনার সংযোগ স্থাপিত হয়েছে।");
+        appendChatMessage("system", "আপনার সংযোগ স্থাপিত হয়েছে।");
       });
       conn.on('data', function(data){
-        appendChatMessage("Peer", data);
+        try {
+          const parsed = JSON.parse(data);
+          appendChatMessage(parsed.sender, parsed.text);
+        } catch (e) {
+          console.error("Invalid message format", e);
+        }
       });
       conn.on('error', function(err){
         console.error(err);
       });
     }
     
-    // চ্যাট মেসেজ পাঠানো
-    sendChatButton.addEventListener('click', function(){
-      const msg = chatInput.value.trim();
-      if(msg === '' || !dataConn || !dataConn.open) return;
-      dataConn.send(msg);
-      appendChatMessage("You", msg);
-      chatInput.value = '';
-    });
+    // ------------------ Chat Message Functions ------------------
+    sendChatButton.addEventListener('click', sendChatMessage);
     chatInput.addEventListener('keypress', function(e){
       if(e.key === 'Enter'){
-        sendChatButton.click();
+        sendChatMessage();
       }
     });
+    
+    function sendChatMessage() {
+      const msg = chatInput.value.trim();
+      if(msg === '' || !dataConn || !dataConn.open) return;
+      // পাঠানোর জন্য JSON অবজেক্ট
+      const messageData = {
+        sender: username,
+        text: msg
+      };
+      dataConn.send(JSON.stringify(messageData));
+      appendChatMessage(username, msg);
+      chatInput.value = '';
+    }
     
     function appendChatMessage(sender, message) {
       const time = new Date().toLocaleTimeString();
       const msgDiv = document.createElement('div');
-      msgDiv.textContent = `[${time}] ${sender}: ${message}`;
+      msgDiv.classList.add('message');
+      // যদি বার্তাটি নিজের হয়, তবে 'self' ক্লাস, অন্যথায় 'peer'
+      if(sender === username) {
+        msgDiv.classList.add('self');
+      } else if(sender === "system") {
+        // সিস্টেম মেসেজ
+        msgDiv.style.textAlign = "center";
+        msgDiv.style.backgroundColor = "#e0e0e0";
+      } else {
+        msgDiv.classList.add('peer');
+      }
+      msgDiv.innerHTML = `<strong>${sender}</strong> (${time}):<br>${message}`;
       chatMessagesDiv.appendChild(msgDiv);
       chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
     }
     
-    // --- ভিডিও/অডিও কল ---
+    // ------------------ Video/Audio Call Functions ------------------
     startVideoButton.addEventListener('click', function(){
       navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then(function(stream){
@@ -227,7 +300,7 @@
               remoteVideo.srcObject = remoteStream;
             });
           }
-          // account2-তে, কল ইনকামিং হলে peer.on('call') ইভেন্ট হ্যান্ডেল করবে
+          // account2-তে, ইনকামিং কল peer.on('call') ইভেন্ট হ্যান্ডেল করবে
         })
         .catch(function(err){
           console.error("Error accessing media devices:", err);
