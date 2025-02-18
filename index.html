@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Peer-to-Peer Chat & Video - Login Required</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+    }
+    .section {
+      background: #fff;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+    textarea, input[type="text"], input[type="password"], select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+    button {
+      padding: 8px 12px;
+      margin-right: 5px;
+      margin-bottom: 5px;
+      cursor: pointer;
+      border: none;
+      border-radius: 3px;
+      background-color: #007bff;
+      color: #fff;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #chatMessages {
+      border: 1px solid #ccc;
+      height: 200px;
+      overflow-y: auto;
+      padding: 8px;
+      background: #fafafa;
+      margin-bottom: 10px;
+    }
+    video {
+      width: 100%;
+      max-width: 380px;
+      margin: 5px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+    #connectionStatus {
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    @media (min-width: 600px) {
+      video {
+        width: 45%;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Peer-to-Peer Chat & Video</h1>
+  
+  <!-- Login Section -->
+  <div id="loginSection" class="section">
+    <h2>লগইন</h2>
+    <label for="accountSelect">একাউন্ট নির্বাচন করুন:</label>
+    <select id="accountSelect">
+      <option value="offerer">একাউন্ট ১ (Offerer)</option>
+      <option value="answerer">একাউন্ট ২ (Answerer)</option>
+    </select>
+    <label for="passwordInput">পাসওয়ার্ড:</label>
+    <input type="password" id="passwordInput" placeholder="পাসওয়ার্ড দিন">
+    <button id="loginButton">লগইন</button>
+    <p style="font-size:0.9em;color:#555;">ডিফল্ট পাসওয়ার্ড: robintanu</p>
+  </div>
+  
+  <!-- Chat & Video Section -->
+  <div id="chatSection" style="display:none;">
+    <!-- Signaling Section -->
+    <div class="section" id="signalingSection">
+      <h2>সিগন্যালিং (Offer/Answer)</h2>
+      <div id="offerControls" style="display:none;">
+        <button id="createOffer">Create Offer</button>
+      </div>
+      <div id="answerControls" style="display:none;">
+        <button id="createAnswer">Create Answer</button>
+      </div>
+      <br>
+      <textarea id="localSDP" placeholder="Local SDP (JSON ফর্ম্যাটে) এখানে দেখাবে..."></textarea>
+      <button id="copyLocalSDP">Copy Local SDP</button>
+      <br>
+      <textarea id="remoteSDP" placeholder="Remote SDP এখানে পেস্ট করুন..."></textarea>
+      <button id="connect">Connect (Set Remote SDP)</button>
+      <div id="connectionStatus">Not Connected</div>
+      <p style="font-size:0.9em;color:#555;">
+        নির্দেশনা:<br>
+        যদি আপনি Offerer (একাউন্ট ১) হন: "Create Offer" চাপুন, তারপর আপনার Local SDP কপি করে Answerer-কে পাঠান।<br>
+        Answerer (একাউন্ট ২) হলে: প্রাপ্ত SDP "Remote SDP" এ পেস্ট করুন এবং "Create Answer" চাপুন, তারপর আপনার SDP Offerer-কে পাঠান।<br>
+        Offerer: প্রাপ্ত SDP "Remote SDP" এ পেস্ট করে "Connect" চাপুন।
+      </p>
+    </div>
+    
+    <!-- Chat Section -->
+    <div class="section">
+      <h2>টেক্সট চ্যাট</h2>
+      <div id="chatMessages"></div>
+      <input type="text" id="chatInput" placeholder="আপনার মেসেজ লিখুন..." />
+      <button id="sendChat">Send</button>
+    </div>
+    
+    <!-- Video Section -->
+    <div class="section">
+      <h2>ভিডিও/অডিও কল</h2>
+      <div style="display: flex; flex-wrap: wrap; justify-content: center;">
+        <video id="localVideo" autoplay muted></video>
+        <video id="remoteVideo" autoplay></video>
+      </div>
+      <br>
+      <button id="startVideo">Start Video</button>
+      <button id="stopVideo">Stop Video</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ------------------ Login & Role Setup ------------------
+  let userRole = null; // "offerer" বা "answerer"
+
+  document.getElementById('loginButton').addEventListener('click', function(){
+    const selectedRole = document.getElementById('accountSelect').value;
+    const password = document.getElementById('passwordInput').value;
+    if(password === 'robintanu'){
+      userRole = selectedRole;
+      document.getElementById('loginSection').style.display = 'none';
+      document.getElementById('chatSection').style.display = 'block';
+      // রোল অনুযায়ী কন্ট্রোল দেখানো
+      if(userRole === 'offerer'){
+        document.getElementById('offerControls').style.display = 'block';
+        document.getElementById('answerControls').style.display = 'none';
+      } else {
+        document.getElementById('offerControls').style.display = 'none';
+        document.getElementById('answerControls').style.display = 'block';
+      }
+    } else {
+      alert("ভুল পাসওয়ার্ড!");
+    }
+  });
+
+  // ------------------ WebRTC & Chat Setup ------------------
+  const configuration = {}; // চাইলে ICE servers যোগ করতে পারেন
+  const pc = new RTCPeerConnection(configuration);
+  let dataChannel;
+  let localStream = null;
+  let remoteStream = new MediaStream();
+
+  const localSDPTextarea = document.getElementById('localSDP');
+  const remoteSDPTextarea = document.getElementById('remoteSDP');
+  const connectionStatusDiv = document.getElementById('connectionStatus');
+  const chatMessagesDiv = document.getElementById('chatMessages');
+  const chatInput = document.getElementById('chatInput');
+
+  // কানেকশন স্টেট আপডেট
+  pc.onconnectionstatechange = () => {
+    connectionStatusDiv.textContent = "Connection State: " + pc.connectionState;
+  };
+
+  // ICE candidate সংগ্রহ শেষে Local SDP আপডেট হবে
+  pc.onicecandidate = event => {
+    if (!event.candidate) {
+      localSDPTextarea.value = JSON.stringify(pc.localDescription);
+    }
+  };
+
+  // Remote media track যোগ করা
+  pc.ontrack = event => {
+    event.streams[0].getTracks().forEach(track => {
+      remoteStream.addTrack(track);
+    });
+    document.getElementById('remoteVideo').srcObject = remoteStream;
+  };
+
+  // Answerer এর ক্ষেত্রে Data channel গ্রহণ
+  pc.ondatachannel = event => {
+    dataChannel = event.channel;
+    setupDataChannel();
+  };
+
+  // Data channel ইভেন্টস সেটআপ
+  function setupDataChannel() {
+    dataChannel.onopen = () => {
+      console.log("Data channel is open");
+    };
+    dataChannel.onmessage = event => {
+      appendChatMessage("Peer", event.data);
+    };
+  }
+
+  // চ্যাট মেসেজ দেখানো
+  function appendChatMessage(sender, message) {
+    const time = new Date().toLocaleTimeString();
+    const msgDiv = document.createElement('div');
+    msgDiv.textContent = `[${time}] ${sender}: ${message}`;
+    chatMessagesDiv.appendChild(msgDiv);
+    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+  }
+
+  // ------------------ Offerer Controls ------------------
+  document.getElementById('createOffer').addEventListener('click', async () => {
+    try {
+      // Data channel তৈরি (Offerer)
+      dataChannel = pc.createDataChannel('chat');
+      setupDataChannel();
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+    } catch (err) {
+      console.error("Error creating offer:", err);
+    }
+  });
+
+  // ------------------ Answerer Controls ------------------
+  document.getElementById('createAnswer').addEventListener('click', async () => {
+    try {
+      const remoteDesc = JSON.parse(remoteSDPTextarea.value);
+      await pc.setRemoteDescription(remoteDesc);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+    } catch (err) {
+      console.error("Error creating answer:", err);
+    }
+  });
+
+  // ------------------ Connect (Offerer) ------------------
+  document.getElementById('connect').addEventListener('click', async () => {
+    try {
+      const remoteDesc = JSON.parse(remoteSDPTextarea.value);
+      await pc.setRemoteDescription(remoteDesc);
+    } catch (err) {
+      console.error("Error setting remote description:", err);
+    }
+  });
+
+  // ------------------ Copy Local SDP ------------------
+  document.getElementById('copyLocalSDP').addEventListener('click', () => {
+    navigator.clipboard.writeText(localSDPTextarea.value).then(() => {
+      alert("Local SDP copied to clipboard!");
+    }).catch(err => {
+      console.error("Could not copy text: ", err);
+    });
+  });
+
+  // ------------------ Chat Send ------------------
+  document.getElementById('sendChat').addEventListener('click', () => {
+    const message = chatInput.value.trim();
+    if(message === "" || !dataChannel || dataChannel.readyState !== "open") return;
+    dataChannel.send(message);
+    appendChatMessage("You", message);
+    chatInput.value = "";
+  });
+
+  chatInput.addEventListener('keypress', function(e) {
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      document.getElementById('sendChat').click();
+    }
+  });
+
+  // ------------------ Video & Audio ------------------
+  document.getElementById('startVideo').addEventListener('click', async () => {
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+      document.getElementById('localVideo').srcObject = localStream;
+      localStream.getTracks().forEach(track => {
+        pc.addTrack(track, localStream);
+      });
+    } catch (err) {
+      console.error("Error accessing media devices:", err);
+    }
+  });
+
+  document.getElementById('stopVideo').addEventListener('click', () => {
+    if(localStream){
+      localStream.getTracks().forEach(track => track.stop());
+      localStream = null;
+      document.getElementById('localVideo').srcObject = null;
+    }
+  });
+</script>
+</body>
+</html>
