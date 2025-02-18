@@ -1,0 +1,100 @@
+/* Updated design styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #eef2f3;
+    margin: 0;
+    padding: 20px;
+  }
+  .container {
+    max-width: 960px;
+    margin: auto;
+  }
+  .section {
+    background: #fff;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  input, select, button, textarea {
+    width: 100%;
+    margin: 8px 0;
+    padding: 12px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+    font-size: 16px;
+  }
+  button {
+    background: #007bff;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  button:hover {
+    background: #0056b3;
+  }
+  /* Chat styling */
+  #chatMessages {
+    height: 300px;
+    overflow-y: auto;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 12px;
+    border-radius: 4px;
+  }
+  .message {
+    margin: 8px 0;
+    padding: 10px 14px;
+    border-radius: 20px;
+    max-width: 70%;
+    word-wrap: break-word;
+    font-size: 15px;
+  }
+  .message.self {
+    background-color: #dcf8c6;
+    margin-left: auto;
+    text-align: right;
+  }
+  .message.peer {
+    background-color: #f1f0f0;
+    margin-right: auto;
+    text-align: left;
+  }
+  .message.system {
+    text-align: center;
+    background-color: #e0e0e0;
+  }
+  /* Video styling */
+  .video-container {
+    position: relative;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  #remoteVideo {
+    width: 100%;
+    height: auto;
+    background: #000;
+  }
+  #localVideo {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 160px;
+    height: auto;
+    border: 2px solid #fff;
+    border-radius: 5px;
+    /* Mirror local video */
+    transform: scaleX(-1);
+  }
+  @media (max-width: 600px) {
+    #localVideo {
+      width: 120px;
+    }
+  }
+  .fullscreen-btn {
+    margin-top: 10px;
+    background: #28a745;
+  }
