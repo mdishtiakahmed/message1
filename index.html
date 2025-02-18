@@ -7,54 +7,59 @@
   <!-- PeerJS লাইব্রেরি -->
   <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
   <style>
+    /* Updated design styles */
     body {
-      font-family: Arial, sans-serif;
-      background: #f7f7f7;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #eef2f3;
       margin: 0;
       padding: 20px;
     }
     .container {
-      max-width: 900px;
+      max-width: 960px;
       margin: auto;
     }
     .section {
       background: #fff;
-      padding: 15px;
+      padding: 20px;
       margin-bottom: 20px;
-      border-radius: 5px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     input, select, button, textarea {
       width: 100%;
-      margin: 5px 0;
-      padding: 10px;
-      border-radius: 3px;
+      margin: 8px 0;
+      padding: 12px;
+      border-radius: 4px;
       border: 1px solid #ccc;
       box-sizing: border-box;
+      font-size: 16px;
     }
     button {
       background: #007bff;
       color: #fff;
       border: none;
       cursor: pointer;
+      transition: background 0.3s ease;
     }
     button:hover {
       background: #0056b3;
     }
-    /* চ্যাট উইন্ডোর স্টাইল */
+    /* Chat styling */
     #chatMessages {
-      height: 250px;
+      height: 300px;
       overflow-y: auto;
-      background: #fafafa;
-      border: 1px solid #ccc;
-      padding: 10px;
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 12px;
+      border-radius: 4px;
     }
     .message {
-      margin: 5px 0;
-      padding: 8px 12px;
-      border-radius: 15px;
+      margin: 8px 0;
+      padding: 10px 14px;
+      border-radius: 20px;
       max-width: 70%;
       word-wrap: break-word;
+      font-size: 15px;
     }
     .message.self {
       background-color: #dcf8c6;
@@ -66,10 +71,16 @@
       margin-right: auto;
       text-align: left;
     }
-    /* ভিডিও কলের স্টাইল */
+    .message.system {
+      text-align: center;
+      background-color: #e0e0e0;
+    }
+    /* Video styling */
     .video-container {
       position: relative;
       background: #000;
+      border-radius: 8px;
+      overflow: hidden;
     }
     #remoteVideo {
       width: 100%;
@@ -80,7 +91,7 @@
       position: absolute;
       bottom: 10px;
       right: 10px;
-      width: 150px;
+      width: 160px;
       height: auto;
       border: 2px solid #fff;
       border-radius: 5px;
@@ -89,14 +100,18 @@
     }
     @media (max-width: 600px) {
       #localVideo {
-        width: 100px;
+        width: 120px;
       }
+    }
+    .fullscreen-btn {
+      margin-top: 10px;
+      background: #28a745;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- লগইন সেকশন -->
+    <!-- Login Section -->
     <div id="loginSection" class="section">
       <h2>লগইন</h2>
       <label for="accountSelect">একাউন্ট নির্বাচন করুন:</label>
@@ -108,8 +123,8 @@
       <input type="password" id="passwordInput" placeholder="পাসওয়ার্ড দিন">
       <button id="loginButton">লগইন</button>
     </div>
-    
-    <!-- চ্যাট সেকশন -->
+
+    <!-- Chat Section -->
     <div id="chatSection" class="section" style="display:none;">
       <h2>লাইভ চ্যাট</h2>
       <label for="usernameInput">আপনার নাম:</label>
@@ -118,20 +133,22 @@
       <div id="chatMessages"></div>
       <input type="text" id="chatInput" placeholder="মেসেজ লিখুন...">
       <button id="sendChat">পাঠান</button>
+      <button id="chatFullScreen" class="fullscreen-btn">চ্যাট ফুল স্ক্রিন</button>
     </div>
-    
-    <!-- ভিডিও সেকশন -->
+
+    <!-- Video Section -->
     <div id="videoSection" class="section" style="display:none;">
       <h2>ভিডিও কল</h2>
-      <div class="video-container">
+      <div class="video-container" id="videoContainer">
         <video id="remoteVideo" autoplay></video>
         <video id="localVideo" autoplay muted></video>
       </div>
       <button id="startVideo">ভিডিও শুরু করুন</button>
       <button id="stopVideo">ভিডিও বন্ধ করুন</button>
+      <button id="videoFullScreen" class="fullscreen-btn">ভিডিও ফুল স্ক্রিন</button>
     </div>
   </div>
-  
+
   <script>
     // ------------------ Global Variables ------------------
     let userRole;       // "account1" অথবা "account2"
@@ -140,65 +157,96 @@
     let dataConn;
     let localStream;
     let currentCall;
-    
+    let chatHistory = [];
+
     // DOM Elements
     const loginSection = document.getElementById('loginSection');
     const chatSection  = document.getElementById('chatSection');
     const videoSection = document.getElementById('videoSection');
-    
+
     const loginButton   = document.getElementById('loginButton');
     const passwordInput = document.getElementById('passwordInput');
     const accountSelect = document.getElementById('accountSelect');
-    
+
     const usernameInput     = document.getElementById('usernameInput');
     const updateUsernameBtn = document.getElementById('updateUsername');
-    
+
     const chatMessagesDiv = document.getElementById('chatMessages');
     const chatInput       = document.getElementById('chatInput');
     const sendChatButton  = document.getElementById('sendChat');
-    
+
     const localVideo  = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
     const startVideoButton = document.getElementById('startVideo');
     const stopVideoButton  = document.getElementById('stopVideo');
-    
-    // ------------------ Login Functionality ------------------
-    loginButton.addEventListener('click', function(){
-      const pwd = passwordInput.value.trim();
-      if(pwd !== 'robintanu'){
-        alert("ভুল পাসওয়ার্ড!");
-        return;
+
+    const videoContainer = document.getElementById('videoContainer');
+    const videoFullScreenButton = document.getElementById('videoFullScreen');
+    const chatFullScreenButton = document.getElementById('chatFullScreen');
+
+    // ------------------ Local Storage Functions ------------------
+    function saveLoginInfo() {
+      localStorage.setItem('userRole', userRole);
+      localStorage.setItem('username', username);
+    }
+    function loadLoginInfo() {
+      const storedRole = localStorage.getItem('userRole');
+      const storedName = localStorage.getItem('username');
+      if (storedRole && storedName) {
+        userRole = storedRole;
+        username = storedName;
+        usernameInput.value = username;
+        accountSelect.value = userRole;
+        return true;
       }
-      // লগইন সফল হলে
-      userRole = accountSelect.value; // "account1" অথবা "account2"
-      // ডিফল্ট ইউজারনেম হিসেবে account নাম সেট করা
-      username = userRole;
-      usernameInput.value = username;
-      
-      loginSection.style.display = 'none';
-      chatSection.style.display  = 'block';
-      videoSection.style.display = 'block';
-      
-      // নির্দিষ্ট id দিয়ে Peer তৈরি (account1 অথবা account2)
+      return false;
+    }
+    function saveChatHistory() {
+      localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+    }
+    function loadChatHistory() {
+      const storedChat = localStorage.getItem('chatHistory');
+      if (storedChat) {
+        chatHistory = JSON.parse(storedChat);
+        chatHistory.forEach(msg => {
+          appendChatMessage(msg.sender, msg.text, msg.time, false);
+        });
+      }
+    }
+
+    // ------------------ Full Screen Functions ------------------
+    function toggleFullScreen(element) {
+      if (!document.fullscreenElement) {
+        element.requestFullscreen().catch(err => {
+          alert(`ফুল-স্ক্রিন মোড চালু করতে সমস্যা: ${err.message}`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    }
+    videoFullScreenButton.addEventListener('click', () => {
+      toggleFullScreen(videoContainer);
+    });
+    chatFullScreenButton.addEventListener('click', () => {
+      toggleFullScreen(chatSection);
+    });
+
+    // ------------------ PeerJS Initialization ------------------
+    function initPeer() {
       peer = new Peer(userRole, { debug: 2 });
       
-      peer.on('open', function(id){
+      peer.on('open', function(id) {
         console.log("Peer ID:", id);
-        // account1 থেকে account2-তে ডাটা কানেকশন ও ভিডিও কল শুরু হবে
         if(userRole === 'account1'){
           dataConn = peer.connect("account2");
           setupDataConnection(dataConn);
         }
       });
-      
-      // account2-তে ইনকামিং ডাটা কানেকশন গ্রহণ
-      peer.on('connection', function(conn){
+      peer.on('connection', function(conn) {
         dataConn = conn;
         setupDataConnection(conn);
       });
-      
-      // ভিডিও কল – account2-তে ইনকামিং কল answer করা হবে
-      peer.on('call', function(call){
+      peer.on('call', function(call) {
         if(localStream) {
           call.answer(localStream);
         } else {
@@ -209,7 +257,7 @@
               call.answer(stream);
             })
             .catch(function(err){
-              console.error("Error accessing media devices:", err);
+              console.error("মিডিয়া ডিভাইস এক্সেসে সমস্যা:", err);
             });
         }
         currentCall = call;
@@ -217,27 +265,48 @@
           remoteVideo.srcObject = remoteStream;
         });
       });
+    }
+
+    // ------------------ Login Functionality ------------------
+    loginButton.addEventListener('click', function(){
+      const pwd = passwordInput.value.trim();
+      if(pwd !== 'robintanu'){
+        alert("ভুল পাসওয়ার্ড!");
+        return;
+      }
+      userRole = accountSelect.value;
+      username = userRole;  // ডিফল্ট নাম হিসেবে account নাম
+      usernameInput.value = username;
+      saveLoginInfo();
+      
+      loginSection.style.display = 'none';
+      chatSection.style.display  = 'block';
+      videoSection.style.display = 'block';
+
+      initPeer();
+      loadChatHistory();
     });
-    
+
     // ------------------ Update Username ------------------
     updateUsernameBtn.addEventListener('click', function(){
       const newName = usernameInput.value.trim();
       if(newName !== ""){
         username = newName;
         alert("নাম আপডেট হয়েছে: " + username);
+        saveLoginInfo();
       }
     });
-    
+
     // ------------------ Data Connection (Live Chat) Setup ------------------
     function setupDataConnection(conn) {
       conn.on('open', function(){
         console.log("Data connection open");
-        appendChatMessage("system", "আপনার সংযোগ স্থাপিত হয়েছে।");
+        appendChatMessage("system", "আপনার সংযোগ স্থাপিত হয়েছে।", new Date().toLocaleTimeString(), true);
       });
       conn.on('data', function(data){
         try {
           const parsed = JSON.parse(data);
-          appendChatMessage(parsed.sender, parsed.text);
+          appendChatMessage(parsed.sender, parsed.text, new Date().toLocaleTimeString(), true);
         } catch (e) {
           console.error("Invalid message format", e);
         }
@@ -246,7 +315,7 @@
         console.error(err);
       });
     }
-    
+
     // ------------------ Chat Message Functions ------------------
     sendChatButton.addEventListener('click', sendChatMessage);
     chatInput.addEventListener('keypress', function(e){
@@ -254,59 +323,51 @@
         sendChatMessage();
       }
     });
-    
     function sendChatMessage() {
       const msg = chatInput.value.trim();
       if(msg === '' || !dataConn || !dataConn.open) return;
-      // পাঠানোর জন্য JSON অবজেক্ট
-      const messageData = {
-        sender: username,
-        text: msg
-      };
+      const time = new Date().toLocaleTimeString();
+      const messageData = { sender: username, text: msg, time: time };
       dataConn.send(JSON.stringify(messageData));
-      appendChatMessage(username, msg);
+      appendChatMessage(username, msg, time, true);
       chatInput.value = '';
     }
-    
-    function appendChatMessage(sender, message) {
-      const time = new Date().toLocaleTimeString();
+    function appendChatMessage(sender, message, time, save=true) {
       const msgDiv = document.createElement('div');
       msgDiv.classList.add('message');
-      // যদি বার্তাটি নিজের হয়, তবে 'self' ক্লাস, অন্যথায় 'peer'
       if(sender === username) {
         msgDiv.classList.add('self');
       } else if(sender === "system") {
-        // সিস্টেম মেসেজ
-        msgDiv.style.textAlign = "center";
-        msgDiv.style.backgroundColor = "#e0e0e0";
+        msgDiv.classList.add('system');
       } else {
         msgDiv.classList.add('peer');
       }
       msgDiv.innerHTML = `<strong>${sender}</strong> (${time}):<br>${message}`;
       chatMessagesDiv.appendChild(msgDiv);
       chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+      if(save) {
+        chatHistory.push({ sender, text: message, time });
+        saveChatHistory();
+      }
     }
-    
+
     // ------------------ Video/Audio Call Functions ------------------
     startVideoButton.addEventListener('click', function(){
       navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then(function(stream){
           localStream = stream;
           localVideo.srcObject = stream;
-          // account1 হলে video call initiate করা হবে
           if(userRole === 'account1'){
             currentCall = peer.call("account2", stream);
             currentCall.on('stream', function(remoteStream){
               remoteVideo.srcObject = remoteStream;
             });
           }
-          // account2-তে, ইনকামিং কল peer.on('call') ইভেন্ট হ্যান্ডেল করবে
         })
         .catch(function(err){
-          console.error("Error accessing media devices:", err);
+          console.error("মিডিয়া ডিভাইস এক্সেসে সমস্যা:", err);
         });
     });
-    
     stopVideoButton.addEventListener('click', function(){
       if(localStream){
         localStream.getTracks().forEach(track => track.stop());
@@ -317,6 +378,15 @@
         }
       }
     });
+
+    // Auto-login if stored info exists
+    if(loadLoginInfo()){
+      loginSection.style.display = 'none';
+      chatSection.style.display  = 'block';
+      videoSection.style.display = 'block';
+      initPeer();
+      loadChatHistory();
+    }
   </script>
 </body>
 </html>
